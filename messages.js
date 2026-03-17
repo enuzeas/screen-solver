@@ -22,6 +22,15 @@ function toGeminiBody(anthropicBody) {
   });
 }
 
+function readBody(req) {
+  return new Promise((resolve, reject) => {
+    let body = '';
+    req.on('data', chunk => body += chunk);
+    req.on('end', () => resolve(body));
+    req.on('error', reject);
+  });
+}
+
 function httpsPost(options, bodyBuf) {
   return new Promise((resolve, reject) => {
     const req = https.request(options, res => {
@@ -44,7 +53,7 @@ module.exports = async function handler(req, res) {
     res.status(204).end(); return;
   }
   if (req.method !== 'POST') {
-    res.status(405).end('Method Not Allowed'); return;
+    res.status(405).json({ error: 'Method Not Allowed' }); return;
   }
 
   const API_KEY = process.env.GOOGLE_API_KEY;
@@ -52,11 +61,12 @@ module.exports = async function handler(req, res) {
     res.status(500).json({ error: 'GOOGLE_API_KEY 환경변수가 설정되지 않았습니다.' }); return;
   }
 
-  let body = '';
-  for await (const chunk of req) body += chunk;
+  let rawBody;
+  try { rawBody = await readBody(req); }
+  catch (e) { res.status(400).json({ error: '요청 읽기 실패: ' + e.message }); return; }
 
   let converted;
-  try { converted = toGeminiBody(body); }
+  try { converted = toGeminiBody(rawBody); }
   catch (e) { res.status(400).json({ error: '요청 변환 실패: ' + e.message }); return; }
 
   const bodyBuf = Buffer.from(converted, 'utf8');
