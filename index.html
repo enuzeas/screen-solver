@@ -189,6 +189,7 @@ function activate() {
 }
 
 function switchTab(t) {
+  if (t !== 'live' && liveStream) stopLive();
   curTab = t;
   ['paste','upload','live'].forEach(x => {
     document.getElementById('tab-'+x).classList.toggle('active', x===t);
