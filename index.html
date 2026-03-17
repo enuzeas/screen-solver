@@ -58,6 +58,7 @@ body { background: #040709; display: flex; align-items: center; justify-content:
 .explain-box { background: #070d12; border-left: 2px solid #1a4a60; padding: 8px 10px; border-radius: 0 3px 3px 0; }
 .explain-label { font-size: 8px; letter-spacing: 0.12em; color: #2a6a80; margin-bottom: 5px; }
 .explain-text { font-size: 11px; line-height: 1.9; color: #608898; white-space: pre-wrap; }
+.prob-title { font-size: 9px; letter-spacing: 0.12em; color: #4a8070; margin: 10px 0 6px; }
 .rbody { font-size: 12px; line-height: 1.9; color: #80b8a0; white-space: pre-wrap; }
 .rbody.loading { color: #1e4030; font-size: 11px; }
 
@@ -377,15 +378,16 @@ async function analyze(auto=false) {
           role: 'user',
           content: [
             { type: 'image', source: { type: 'base64', media_type: curMime, data: curImgData } },
-            { type: 'text', text: `이 화면을 분석해서 반드시 아래 JSON 형식으로만 답변하세요. 다른 텍스트는 절대 포함하지 마세요.
+            { type: 'text', text: `이 화면에서 풀어야 할 문제를 모두 찾아 반드시 아래 JSON 배열 형식으로만 답변하세요. 다른 텍스트는 절대 포함하지 마세요.
 
-{"answer":"정답 또는 핵심 결론을 여기에 (1~3줄, 핵심만)","explain":"풀이 과정, 근거, 이유를 여기에 (단계별로 상세히)"}
+[{"title":"문제 제목 (짧게)","answer":"정답 또는 핵심 결론 (1~3줄)","explain":"풀이 과정 또는 근거 (상세히)"}]
 
+- 문제가 여러 개면 배열에 각각 추가하세요.
 - 수학/계산: answer=최종 답, explain=풀이 과정
 - 객관식/퀴즈: answer=정답 번호+내용, explain=왜 그게 정답인지
 - 코딩 오류: answer=수정된 코드, explain=오류 원인과 수정 이유
 - 번역: answer=번역 결과, explain=주요 어휘/문법 설명
-- 문제가 없으면: answer=화면 핵심 요약, explain=상세 내용` }
+- 풀 문제가 없으면: title=요약, answer=핵심 내용, explain=상세 내용` }
           ]
         }]
       })
@@ -406,18 +408,22 @@ async function analyze(auto=false) {
     } catch(e) { parsed = null; }
 
     const body = item.querySelector('.rbody');
-    if (parsed && (parsed.answer || parsed.explain)) {
+    const problems = Array.isArray(parsed) ? parsed : (parsed?.answer || parsed?.explain ? [parsed] : null);
+    if (problems && problems.length > 0) {
       body.remove();
-      item.insertAdjacentHTML('beforeend', `
-        <div class="answer-box">
-          <div class="answer-label">// 답</div>
-          <div class="answer-text">${escHtml(parsed.answer || '—')}</div>
-        </div>
-        <div class="explain-box">
-          <div class="explain-label">// 해설</div>
-          <div class="explain-text">${escHtml(parsed.explain || '—')}</div>
-        </div>
-      `);
+      problems.forEach((p, i) => {
+        item.insertAdjacentHTML('beforeend', `
+          ${problems.length > 1 ? `<div class="prob-title">// 문제 ${i + 1}${p.title ? ' — ' + escHtml(p.title) : ''}</div>` : ''}
+          <div class="answer-box">
+            <div class="answer-label">// 답</div>
+            <div class="answer-text">${escHtml(p.answer || '—')}</div>
+          </div>
+          <div class="explain-box">
+            <div class="explain-label">// 해설</div>
+            <div class="explain-text">${escHtml(p.explain || '—')}</div>
+          </div>
+        `);
+      });
     } else {
       body.className = 'rbody';
       body.textContent = raw;
