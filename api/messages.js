@@ -83,7 +83,20 @@ module.exports = async function handler(req, res) {
   try {
     const { status, body: respBody } = await httpsPost(options, bodyBuf);
     const gResp = JSON.parse(respBody);
-    const text = gResp.candidates?.[0]?.content?.parts?.[0]?.text || '응답을 받지 못했습니다.';
+
+    // API 오류 응답 처리
+    if (gResp.error) {
+      res.status(502).json({ error: `Gemini API 오류: ${gResp.error.message}` }); return;
+    }
+
+    const candidate = gResp.candidates?.[0];
+    const text = candidate?.content?.parts?.[0]?.text;
+
+    if (!text) {
+      const reason = candidate?.finishReason || 'UNKNOWN';
+      res.status(200).json({ content: [{ type: 'text', text: `응답 없음 (finishReason: ${reason})` }] }); return;
+    }
+
     res.status(200).json({ content: [{ type: 'text', text }] });
   } catch (e) {
     res.status(500).json({ error: e.message });
