@@ -1,6 +1,7 @@
 {
-  "rewrites": [
-    { "source": "/api/messages", "destination": "/api/messages" },
-    { "source": "/(.*)", "destination": "/public/index.html" }
-  ]
+  "functions": {
+    "api/messages.js": {
+      "maxDuration": 30
+    }
+  }
 }
