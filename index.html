@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Screen Solver</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: #040709; display: flex; align-items: center; justify-content: center; min-height: 100vh; font-family: 'Courier New', Menlo, monospace; }
+
+.app { background: #060a0c; border: 1px solid #182430; border-radius: 12px; overflow: hidden; color: #aacfbf; width: 900px; max-width: 98vw; }
+
+.hd { background: #080d10; border-bottom: 1px solid #182430; padding: 10px 16px; display: flex; align-items: center; gap: 8px; }
+.hd-logo { font-size: 13px; letter-spacing: 0.14em; color: #00cc88; font-weight: 500; flex: 1; }
+.dot { width: 7px; height: 7px; border-radius: 50%; background: #253530; transition: background 0.3s; }
+.dot.on { background: #00cc88; }
+.dot.busy { background: #e8a020; animation: dp 0.7s infinite; }
+@keyframes dp { 0%,100%{opacity:1} 50%{opacity:0.3} }
+.hd-note { font-size: 10px; color: #2a4040; }
+
+.tabs { display: flex; background: #070c0f; border-bottom: 1px solid #182430; }
+.tab { flex: 1; padding: 8px 4px; font-family: inherit; font-size: 10px; letter-spacing: 0.08em; background: transparent; border: none; border-bottom: 2px solid transparent; color: #2e4a40; cursor: pointer; transition: all 0.15s; }
+.tab:hover { color: #5a9080; }
+.tab.active { color: #00cc88; border-bottom-color: #00cc88; }
+
+.main { display: grid; grid-template-columns: 1fr 1fr; min-height: 380px; }
+
+.left { border-right: 1px solid #182430; background: #050810; display: flex; flex-direction: column; }
+.left-inner { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 16px; gap: 10px; }
+
+.drop-zone { width: 100%; border: 1px dashed #182430; border-radius: 8px; padding: 32px 16px; text-align: center; cursor: pointer; transition: border-color 0.2s; }
+.drop-zone:hover { border-color: #00cc8840; }
+.drop-zone .icon { font-size: 26px; color: #182430; margin-bottom: 10px; }
+.drop-zone p { font-size: 11px; color: #2e4840; line-height: 2.2; }
+.shortcut { font-size: 12px; color: #1e3830; background: #0d1820; border: 1px solid #182430; border-radius: 4px; padding: 2px 7px; font-family: inherit; display: inline-block; margin: 2px; }
+
+.img-wrap { position: relative; width: 100%; display: none; }
+.img-wrap.show { display: block; }
+.img-wrap img, canvas.lc { max-width: 100%; max-height: 300px; border-radius: 4px; border: 1px solid #182430; display: block; }
+.scanbar { position: absolute; left: 0; right: 0; height: 2px; background: #00cc88; opacity: 0; }
+.img-wrap.scanning .scanbar { opacity: 0.7; animation: sm 1.4s linear infinite; }
+@keyframes sm { 0%{top:0} 100%{top:100%} }
+
+.right { display: flex; flex-direction: column; }
+.rpanel-hd { padding: 8px 14px; border-bottom: 1px solid #182430; font-size: 9px; letter-spacing: 0.14em; color: #2e4040; }
+.results { flex: 1; overflow-y: auto; padding: 14px; max-height: 370px; }
+
+.result { margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px solid #0c1620; }
+.result:last-child { border-bottom: none; }
+.rts { font-size: 9px; color: #1e3030; margin-bottom: 8px; display: flex; align-items: center; gap: 8px; }
+.rts-time { color: #1e3030; }
+.rts-badge { font-size: 8px; letter-spacing: 0.1em; padding: 1px 6px; border-radius: 2px; }
+.badge-ans { background: #00cc8818; color: #00cc88; border: 1px solid #00cc8830; }
+.badge-exp { background: #1a4a6018; color: #4a90a0; border: 1px solid #1a4a6030; }
+.answer-box { background: #040e0b; border: 1px solid #00cc8825; border-radius: 4px; padding: 10px 12px; margin-bottom: 8px; }
+.answer-label { font-size: 8px; letter-spacing: 0.12em; color: #00cc8860; margin-bottom: 6px; }
+.answer-text { font-size: 15px; font-weight: bold; line-height: 1.7; color: #00cc88; white-space: pre-wrap; }
+.explain-box { background: #070d12; border-left: 2px solid #1a4a60; padding: 8px 10px; border-radius: 0 3px 3px 0; }
+.explain-label { font-size: 8px; letter-spacing: 0.12em; color: #2a6a80; margin-bottom: 5px; }
+.explain-text { font-size: 11px; line-height: 1.9; color: #608898; white-space: pre-wrap; }
+.rbody { font-size: 12px; line-height: 1.9; color: #80b8a0; white-space: pre-wrap; }
+.rbody.loading { color: #1e4030; font-size: 11px; }
+
+.empty { color: #1e3030; font-size: 11px; text-align: center; padding: 50px 20px; line-height: 2.5; }
+
+.ft { background: #080d10; border-top: 1px solid #182430; padding: 9px 16px; display: flex; align-items: center; gap: 12px; }
+.btn { font-family: inherit; font-size: 10px; padding: 6px 14px; border: 1px solid #182430; border-radius: 4px; background: transparent; color: #4a8070; cursor: pointer; transition: all 0.15s; letter-spacing: 0.06em; }
+.btn:hover { border-color: #00cc8870; color: #00cc88; }
+.btn.go { background: #00cc8810; border-color: #00cc8840; color: #00cc88; }
+.btn:disabled { opacity: 0.2; cursor: not-allowed; pointer-events: none; }
+.spacer { flex: 1; }
+.ft-hint { font-size: 10px; color: #1e3030; }
+input[type=file] { display: none; }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <div class="hd">
+    <span class="hd-logo">// SCREEN SOLVER</span>
+    <div class="dot" id="dot"></div>
+    <span class="hd-note" id="hdNote">이미지를 불러오면 시작합니다</span>
+  </div>
+
+  <div class="tabs">
+    <button class="tab active" id="tab-paste" onclick="switchTab('paste')">붙여넣기 / 촬영</button>
+    <button class="tab" id="tab-upload" onclick="switchTab('upload')">파일 업로드</button>
+    <button class="tab" id="tab-live" onclick="switchTab('live')" id="tab-live">화면 공유</button>
+  </div>
+
+  <div class="main">
+    <div class="left">
+      <div class="left-inner">
+        <div id="pane-paste" style="width:100%">
+          <div class="drop-zone" id="pasteZone" onclick="document.getElementById('fi1').click()">
+            <div class="icon">⌘</div>
+            <p>스크린샷 캡처 후<br><span class="shortcut">Ctrl</span><span class="shortcut">V</span> 붙여넣기<br><span style="color:#1a3030;font-size:10px">또는 클릭해서 파일 선택</span></p>
+          </div>
+          <input type="file" id="fi1" accept="image/*" onchange="onFile(event,'paste')">
+          <div class="img-wrap" id="wrap-paste"><img id="img-paste" alt=""><div class="scanbar"></div></div>
+        </div>
+
+        <div id="pane-upload" style="width:100%;display:none">
+          <div class="drop-zone" onclick="document.getElementById('fi2').click()">
+            <div class="icon">↑</div>
+            <p>이미지 파일 선택<br><span style="color:#1a3030;font-size:10px">JPG, PNG, GIF, WebP 지원</span></p>
+          </div>
+          <input type="file" id="fi2" accept="image/*" onchange="onFile(event,'upload')">
+          <div class="img-wrap" id="wrap-upload"><img id="img-upload" alt=""><div class="scanbar"></div></div>
+        </div>
+
+        <div id="pane-live" style="width:100%;display:none;text-align:center">
+          <div id="live-start">
+            <button class="btn go" onclick="startLive()" id="liveBtn" style="font-size:12px;padding:9px 22px;margin-bottom:12px">화면 공유 시작</button>
+            <p id="liveHint" style="font-size:10px;color:#1e3030;line-height:1.9">허용 후 변화 감지 시 자동 스캔</p>
+          </div>
+          <div id="live-canvas-wrap" class="img-wrap" style="display:none">
+            <canvas id="liveC" class="lc"></canvas>
+            <div class="scanbar"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="right">
+      <div class="rpanel-hd">// 분석 결과</div>
+      <div class="results" id="results">
+        <div class="empty" id="emptyMsg">이미지를 불러오면<br>문제를 찾아 자동으로<br>풀어드립니다</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="ft">
+    <button class="btn go" id="analyzeBtn" onclick="analyze()" disabled>▷ 지금 분석</button>
+    <div class="spacer"></div>
+    <span class="ft-hint" id="ftHint">이미지를 준비해주세요</span>
+  </div>
+</div>
+
+<video id="vid" style="display:none" autoplay muted playsinline></video>
+
+<script>
+// 프록시 서버 주소 (server.js와 동일 포트)
+const PROXY = '/api/messages';
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
+}
+
+let curTab = 'paste', curImgData = null, curMime = 'image/jpeg';
+let liveStream = null, liveTimer = null, scanN = 0, busy = false;
+const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+let prevFrameData = null, diffCheckTimer = null;
+const DIFF_THRESHOLD = 0.03;  // 3% 이상 바뀌면 스캔 (0~1)
+const DIFF_COOLDOWN = 2000;   // 스캔 후 최소 2초 대기
+let lastScanTime = 0;
+
+document.addEventListener('paste', e => {
+  for (const item of (e.clipboardData?.items || [])) {
+    if (item.type.startsWith('image/')) { loadBlob(item.getAsFile(), 'paste'); break; }
+  }
+});
+
+function onFile(e, src) {
+  const f = e.target.files[0];
+  if (f) loadBlob(f, src);
+  e.target.value = '';
+}
+
+function loadBlob(blob, src) {
+  const reader = new FileReader();
+  reader.onload = ev => {
+    const url = ev.target.result;
+    curMime = url.split(';')[0].split(':')[1] || 'image/jpeg';
+    curImgData = url.split(',')[1];
+    const img = document.getElementById('img-' + src);
+    const wrap = document.getElementById('wrap-' + src);
+    const zone = document.getElementById(src + 'Zone');
+    if (img) { img.src = url; wrap.classList.add('show'); if (zone) zone.style.display = 'none'; }
+    activate();
+  };
+  reader.readAsDataURL(blob);
+}
+
+function activate() {
+  document.getElementById('analyzeBtn').disabled = false;
+  document.getElementById('ftHint').textContent = '이미지 준비 완료';
+  setDot('on');
+}
+
+function switchTab(t) {
+  curTab = t;
+  ['paste','upload','live'].forEach(x => {
+    document.getElementById('tab-'+x).classList.toggle('active', x===t);
+    document.getElementById('pane-'+x).style.display = x===t ? '' : 'none';
+  });
+}
+
+function setDot(s) { document.getElementById('dot').className = 'dot' + (s ? ' '+s : ''); }
+
+// 모바일이면 탭 이름/힌트 변경
+if (isMobile) {
+  const liveTab = document.getElementById('tab-live');
+  if (liveTab) liveTab.textContent = '카메라 (실시간)';
+  const liveBtn = document.getElementById('liveBtn');
+  if (liveBtn) liveBtn.textContent = '카메라 시작';
+  const liveHint = document.getElementById('liveHint');
+  if (liveHint) liveHint.textContent = '카메라로 문제를 비추면 자동 분석';
+  const pasteTab = document.querySelector('#tab-paste');
+  if (pasteTab) pasteTab.textContent = '촬영 / 갤러리';
+  // 파일 입력을 카메라 우선으로
+  const fi1 = document.getElementById('fi1');
+  if (fi1) fi1.setAttribute('capture', 'environment');
+}
+
+async function startLive() {
+  try {
+    const constraints = isMobile
+      ? { video: { facingMode: { ideal: 'environment' }, frameRate: { ideal: 5 } }, audio: false }
+      : { video: { frameRate: { ideal: 5 }, displaySurface: 'monitor' }, audio: false };
+
+    liveStream = isMobile
+      ? await navigator.mediaDevices.getUserMedia(constraints)
+      : await navigator.mediaDevices.getDisplayMedia(constraints);
+    const vid = document.getElementById('vid');
+    vid.srcObject = liveStream;
+
+    await new Promise(r => {
+      vid.onloadedmetadata = () => vid.play().then(r).catch(r);
+    });
+    await new Promise(r => {
+      if (vid.readyState >= 3) { r(); return; }
+      vid.oncanplay = r;
+      setTimeout(r, 1500);
+    });
+
+    document.getElementById('live-start').style.display = 'none';
+    const cw = document.getElementById('live-canvas-wrap');
+    cw.style.display = 'block'; cw.classList.add('show');
+    liveStream.getVideoTracks()[0].onended = stopLive;
+
+    const c = document.getElementById('liveC');
+    c.width = vid.videoWidth || 1280;
+    c.height = vid.videoHeight || 720;
+
+    drawLive();
+    setTimeout(() => { startDiffWatch(); }, 500);
+    setDot('on');
+    document.getElementById('analyzeBtn').disabled = false;
+  } catch(e) {
+    const errMsg = isMobile ? '카메라 권한이 거부되었습니다.<br>브라우저 설정에서 카메라를 허용해주세요.' : '화면 공유가 거부되었습니다.<br>다른 탭을 이용해주세요.';
+    document.getElementById('live-start').innerHTML = `<p style="font-size:11px;color:#3a5050;line-height:2">${errMsg}</p>`;
+  }
+}
+
+function stopLive() {
+  if (liveStream) { liveStream.getTracks().forEach(t=>t.stop()); liveStream=null; }
+  if (liveTimer) { clearInterval(liveTimer); liveTimer=null; }
+  if (diffCheckTimer) { clearInterval(diffCheckTimer); diffCheckTimer=null; }
+  prevFrameData = null;
+}
+
+function drawLive() {
+  if (!liveStream) return;
+  const vid = document.getElementById('vid');
+  const c = document.getElementById('liveC');
+  if (vid.readyState === 4 && vid.videoWidth > 0) {
+    if (c.width !== vid.videoWidth) c.width = vid.videoWidth;
+    if (c.height !== vid.videoHeight) c.height = vid.videoHeight;
+    c.getContext('2d').drawImage(vid, 0, 0);
+  }
+  requestAnimationFrame(drawLive);
+}
+
+// 저해상도 썸네일로 프레임 차이 계산 (빠름)
+const THUMB_W = 64, THUMB_H = 36;
+const thumbC = document.createElement('canvas');
+thumbC.width = THUMB_W; thumbC.height = THUMB_H;
+
+function getFrameDiff(vid) {
+  const ctx = thumbC.getContext('2d');
+  ctx.drawImage(vid, 0, 0, THUMB_W, THUMB_H);
+  const cur = ctx.getImageData(0, 0, THUMB_W, THUMB_H).data;
+  if (!prevFrameData) { prevFrameData = cur.slice(); return 0; }
+  let diff = 0;
+  for (let i = 0; i < cur.length; i += 4) {
+    diff += Math.abs(cur[i] - prevFrameData[i])
+           + Math.abs(cur[i+1] - prevFrameData[i+1])
+           + Math.abs(cur[i+2] - prevFrameData[i+2]);
+  }
+  prevFrameData = cur.slice();
+  return diff / (THUMB_W * THUMB_H * 3 * 255); // 0~1
+}
+
+function startDiffWatch() {
+  if (diffCheckTimer) clearInterval(diffCheckTimer);
+  diffCheckTimer = setInterval(() => {
+    if (!liveStream || busy) return;
+    const vid = document.getElementById('vid');
+    if (!vid.videoWidth || vid.readyState < 3) return;
+
+    const diff = getFrameDiff(vid);
+    const now = Date.now();
+    const hint = document.getElementById('ftHint');
+
+    // 변화량 표시 (디버그용)
+    const pct = Math.round(diff * 100);
+    if (!busy) hint.textContent = `변화량 ${pct}% ${diff >= DIFF_THRESHOLD ? '→ 스캔!' : '— 감시 중'}`;
+
+    if (diff >= DIFF_THRESHOLD && now - lastScanTime > DIFF_COOLDOWN) {
+      lastScanTime = now;
+      captureLive();
+    }
+  }, 300); // 300ms마다 diff 체크
+}
+
+function captureLive() {
+  if (!liveStream) return;
+  const vid = document.getElementById('vid');
+  if (!vid.videoWidth || vid.readyState < 3) return;
+  const c = document.createElement('canvas');
+  c.width = vid.videoWidth; c.height = vid.videoHeight;
+  c.getContext('2d').drawImage(vid, 0, 0);
+  // 검은 화면 감지
+  const px = c.getContext('2d').getImageData(Math.floor(c.width/2), Math.floor(c.height/2), 1, 1).data;
+  if (px[0] === 0 && px[1] === 0 && px[2] === 0) {
+    document.getElementById('ftHint').textContent = '검은 화면 감지 — 잠시 후 재시도';
+    setTimeout(captureLive, 800); return;
+  }
+  curMime = 'image/jpeg';
+  curImgData = c.toDataURL('image/jpeg', 0.85).split(',')[1];
+  analyze(true);
+}
+
+async function analyze(auto=false) {
+  if (!curImgData || busy) return;
+  busy = true; setDot('busy');
+  document.getElementById('analyzeBtn').disabled = true;
+  document.getElementById('ftHint').textContent = '분석 중...';
+  document.getElementById('hdNote').textContent = '스캔 중...';
+
+  const activeWrap = document.getElementById('wrap-'+curTab) || document.getElementById('live-canvas-wrap');
+  if (activeWrap) activeWrap.classList.add('scanning');
+
+  const results = document.getElementById('results');
+  const empty = document.getElementById('emptyMsg');
+  if (empty) empty.remove();
+
+  const item = document.createElement('div');
+  item.className = 'result';
+  item.innerHTML = `<div class="rts"><span class="rts-time">${new Date().toLocaleTimeString('ko-KR')}</span></div><div class="rbody loading">● 분석 중...</div>`;
+  results.insertBefore(item, results.firstChild);
+
+  try {
+    const res = await fetch(PROXY, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        messages: [{
+          role: 'user',
+          content: [
+            { type: 'image', source: { type: 'base64', media_type: curMime, data: curImgData } },
+            { type: 'text', text: `이 화면을 분석해서 반드시 아래 JSON 형식으로만 답변하세요. 다른 텍스트는 절대 포함하지 마세요.
+
+{"answer":"정답 또는 핵심 결론을 여기에 (1~3줄, 핵심만)","explain":"풀이 과정, 근거, 이유를 여기에 (단계별로 상세히)"}
+
+- 수학/계산: answer=최종 답, explain=풀이 과정
+- 객관식/퀴즈: answer=정답 번호+내용, explain=왜 그게 정답인지
+- 코딩 오류: answer=수정된 코드, explain=오류 원인과 수정 이유
+- 번역: answer=번역 결과, explain=주요 어휘/문법 설명
+- 문제가 없으면: answer=화면 핵심 요약, explain=상세 내용` }
+          ]
+        }]
+      })
+    });
+    const data = await res.json();
+    const raw = data.content?.[0]?.text || '{}';
+    let parsed = null;
+    try {
+      const jsonStr = raw.replace(/```json|```/g, '').trim();
+      parsed = JSON.parse(jsonStr);
+    } catch(e) { parsed = null; }
+
+    const body = item.querySelector('.rbody');
+    if (parsed && (parsed.answer || parsed.explain)) {
+      body.remove();
+      item.insertAdjacentHTML('beforeend', `
+        <div class="answer-box">
+          <div class="answer-label">// 답</div>
+          <div class="answer-text">${escHtml(parsed.answer || '—')}</div>
+        </div>
+        <div class="explain-box">
+          <div class="explain-label">// 해설</div>
+          <div class="explain-text">${escHtml(parsed.explain || '—')}</div>
+        </div>
+      `);
+    } else {
+      body.className = 'rbody';
+      body.textContent = raw;
+    }
+    scanN++;
+    document.getElementById('hdNote').textContent = `${scanN}회 분석 완료`;
+  } catch(e) {
+    item.querySelector('.rbody').className = 'rbody';
+    item.querySelector('.rbody').textContent = '오류: ' + e.message + '\n\nserver.js가 실행 중인지 확인하세요.';
+  }
+
+  if (activeWrap) activeWrap.classList.remove('scanning');
+  busy = false;
+  setDot(liveStream ? 'on' : curImgData ? 'on' : '');
+  document.getElementById('analyzeBtn').disabled = !curImgData;
+  document.getElementById('ftHint').textContent = '완료';
+}
+</script>
+</body>
+</html>
