@@ -391,6 +391,13 @@ async function analyze(auto=false) {
       })
     });
     const data = await res.json();
+
+    if (!res.ok || data.error) {
+      item.querySelector('.rbody').className = 'rbody';
+      item.querySelector('.rbody').textContent = '오류: ' + (data.error || `HTTP ${res.status}`);
+      throw new Error('api_error');
+    }
+
     const raw = data.content?.[0]?.text || '{}';
     let parsed = null;
     try {
@@ -418,8 +425,10 @@ async function analyze(auto=false) {
     scanN++;
     document.getElementById('hdNote').textContent = `${scanN}회 분석 완료`;
   } catch(e) {
+    if (e.message === 'api_error') { /* 이미 표시됨 */ } else {
     item.querySelector('.rbody').className = 'rbody';
     item.querySelector('.rbody').textContent = '오류: ' + e.message;
+    }
   }
 
   if (activeWrap) activeWrap.classList.remove('scanning');
