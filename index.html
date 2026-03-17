@@ -279,9 +279,10 @@ function drawLive() {
 const THUMB_W = 64, THUMB_H = 36;
 const thumbC = document.createElement('canvas');
 thumbC.width = THUMB_W; thumbC.height = THUMB_H;
+const thumbCtx = thumbC.getContext('2d', { willReadFrequently: true });
 
 function getFrameDiff(vid) {
-  const ctx = thumbC.getContext('2d');
+  const ctx = thumbCtx;
   ctx.drawImage(vid, 0, 0, THUMB_W, THUMB_H);
   const cur = ctx.getImageData(0, 0, THUMB_W, THUMB_H).data;
   if (!prevFrameData) { prevFrameData = cur.slice(); return 0; }
@@ -414,7 +415,7 @@ async function analyze(auto=false) {
     document.getElementById('hdNote').textContent = `${scanN}회 분석 완료`;
   } catch(e) {
     item.querySelector('.rbody').className = 'rbody';
-    item.querySelector('.rbody').textContent = '오류: ' + e.message + '\n\nserver.js가 실행 중인지 확인하세요.';
+    item.querySelector('.rbody').textContent = '오류: ' + e.message;
   }
 
   if (activeWrap) activeWrap.classList.remove('scanning');

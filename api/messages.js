@@ -58,7 +58,7 @@ module.exports = async function handler(req, res) {
 
   const API_KEY = process.env.GOOGLE_API_KEY;
   if (!API_KEY) {
-    res.status(500).json({ error: 'GOOGLE_API_KEY 환경변수가 설정되지 않았습니다.' }); return;
+    res.status(503).json({ error: 'GOOGLE_API_KEY 환경변수가 설정되지 않았습니다. Vercel 대시보드 → Settings → Environment Variables에서 추가하세요.' }); return;
   }
 
   let rawBody;
