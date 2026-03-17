@@ -243,7 +243,11 @@ async function startLive() {
     c.height = vid.videoHeight || 720;
 
     drawLive();
-    setTimeout(() => { startDiffWatch(); }, 500);
+    // 스트림 안정화 후 즉시 1회 분석, 이후 diff 감시
+    setTimeout(() => {
+      captureLive();
+      startDiffWatch();
+    }, 800);
     setDot('on');
     document.getElementById('analyzeBtn').disabled = false;
   } catch(e) {
@@ -293,16 +297,18 @@ function getFrameDiff(vid) {
 
 function startDiffWatch() {
   if (diffCheckTimer) clearInterval(diffCheckTimer);
+  prevFrameData = null; // baseline 리셋 → 첫 체크는 기준 저장만
+  let warmup = true;
   diffCheckTimer = setInterval(() => {
     if (!liveStream || busy) return;
     const vid = document.getElementById('vid');
     if (!vid.videoWidth || vid.readyState < 3) return;
 
     const diff = getFrameDiff(vid);
+    if (warmup) { warmup = false; return; } // 첫 프레임은 baseline만 저장
+
     const now = Date.now();
     const hint = document.getElementById('ftHint');
-
-    // 변화량 표시 (디버그용)
     const pct = Math.round(diff * 100);
     if (!busy) hint.textContent = `변화량 ${pct}% ${diff >= DIFF_THRESHOLD ? '→ 스캔!' : '— 감시 중'}`;
 
@@ -310,7 +316,7 @@ function startDiffWatch() {
       lastScanTime = now;
       captureLive();
     }
-  }, 300); // 300ms마다 diff 체크
+  }, 300);
 }
 
 function captureLive() {
@@ -332,6 +338,11 @@ function captureLive() {
 }
 
 async function analyze(auto=false) {
+  // 라이브 모드에서 수동 분석 버튼 누를 경우 즉시 현재 프레임 캡처
+  if (!auto && liveStream) {
+    captureLive();
+    return;
+  }
   if (!curImgData || busy) return;
   busy = true; setDot('busy');
   document.getElementById('analyzeBtn').disabled = true;
