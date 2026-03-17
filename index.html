@@ -281,6 +281,10 @@ const thumbC = document.createElement('canvas');
 thumbC.width = THUMB_W; thumbC.height = THUMB_H;
 const thumbCtx = thumbC.getContext('2d', { willReadFrequently: true });
 
+// 캡처용 캔버스 재사용 (매번 생성 방지)
+const captureC = document.createElement('canvas');
+const captureCtx = captureC.getContext('2d', { willReadFrequently: true });
+
 function getFrameDiff(vid) {
   const ctx = thumbCtx;
   ctx.drawImage(vid, 0, 0, THUMB_W, THUMB_H);
@@ -324,17 +328,17 @@ function captureLive() {
   if (!liveStream) return;
   const vid = document.getElementById('vid');
   if (!vid.videoWidth || vid.readyState < 3) return;
-  const c = document.createElement('canvas');
-  c.width = vid.videoWidth; c.height = vid.videoHeight;
-  c.getContext('2d').drawImage(vid, 0, 0);
+  if (captureC.width !== vid.videoWidth) captureC.width = vid.videoWidth;
+  if (captureC.height !== vid.videoHeight) captureC.height = vid.videoHeight;
+  captureCtx.drawImage(vid, 0, 0);
   // 검은 화면 감지
-  const px = c.getContext('2d').getImageData(Math.floor(c.width/2), Math.floor(c.height/2), 1, 1).data;
+  const px = captureCtx.getImageData(Math.floor(captureC.width/2), Math.floor(captureC.height/2), 1, 1).data;
   if (px[0] === 0 && px[1] === 0 && px[2] === 0) {
     document.getElementById('ftHint').textContent = '검은 화면 감지 — 잠시 후 재시도';
     setTimeout(captureLive, 800); return;
   }
   curMime = 'image/jpeg';
-  curImgData = c.toDataURL('image/jpeg', 0.85).split(',')[1];
+  curImgData = captureC.toDataURL('image/jpeg', 0.85).split(',')[1];
   analyze(true);
 }
 
